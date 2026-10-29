@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.colinlai87_svg.twa",
+        "sha256_cert_fingerprints": ["57:AC:BF:87:E6:25:E7:F5:61:D0:5E:CB:3D:87:69:98:6C:87:3F:DA:6E:3D:B4:4E:F6:29:37:FE:C6:9E:EF:03"]
+      }
+    }]
