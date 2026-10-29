@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TCG 戰績紀錄</title>
+<meta name="description" content="記錄 TCG 賽事勝敗、牌組與統計">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#4f46e5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TCG戰績">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1b1f2a;--mu:#6b7385;--bd:#e3e6ee;--ac:#4f46e5;--w:#16a34a;--l:#dc2626;--d:#d97706;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141b;--card:#1c1f2a;--tx:#eceef5;--mu:#98a0b5;--bd:#2d3243;--ac:#818cf8;--w:#4ade80;--l:#f87171;--d:#fbbf24;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12141b;--card:#1c1f2a;--tx:#eceef5;--mu:#98a0b5;--bd:#2d3243;--ac:#818cf8;--w:#4ade80;--l:#f87171;--d:#fbbf24;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;padding-bottom:70px}
+main{max-width:640px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--mu);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:10px 4px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit;cursor:pointer}
+.seg button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.seg button.on.w{background:var(--w);border-color:var(--w)}
+.seg button.on.l{background:var(--l);border-color:var(--l)}
+.seg button.on.d{background:var(--d);border-color:var(--d)}
+.btn{width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;background:var(--ac);color:#fff;font:600 16px inherit;cursor:pointer}
+.btn.sec{background:var(--bg);color:var(--tx);border:1px solid var(--bd);margin-top:8px;font-weight:500;font-size:14px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;padding:12px 0;border:0;background:none;color:var(--mu);font:inherit;cursor:pointer}
+nav button.on{color:var(--ac);font-weight:700}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.badge{display:inline-block;min-width:34px;text-align:center;padding:2px 8px;border-radius:8px;color:#fff;font-weight:700;font-size:13px}
+.b-w{background:var(--w)}.b-l{background:var(--l)}.b-d{background:var(--d)}
+.mu{color:var(--mu);font-size:12px}
+.big{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.big b{display:block;font-size:24px}
+.bar{height:6px;background:var(--bd);border-radius:4px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--w)}
+.x{border:0;background:none;color:var(--l);cursor:pointer;font-size:13px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+td,th{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+.empty{text-align:center;color:var(--mu);padding:30px 0}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+var KEY='tcg_records_v1', mem=[], recs=load(), tab='add', fil='all';
+var form={game:loadGame(),gamec:'',games:['','',''],date:today(),event:'',fmt:'BO1',me:'',opp:'',res:'W',score:'',turn:'',note:'',editId:null};
+var GAMES=['符文戰場','Grand Archive','Battle Spirits'],gfil='all';
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function load(){try{var s=localStorage.getItem(KEY);return s?JSON.parse(s):[]}catch(e){return mem}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(recs))}catch(e){mem=recs}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function uniq(k){var o={};recs.forEach(function(r){if(r[k])o[r[k]]=1});return Object.keys(o)}
+function opts(id,list){return '<datalist id="'+id+'">'+list.map(function(x){return '<option value="'+esc(x)+'">'}).join('')+'</datalist>'}
+var RL={W:'勝',L:'敗',D:'和'};
+function calcBo3(g){
+  var a=g[0],b=g[1],c=g[2],w=0,l=0,g3=false;
+  if(!a||!b)return{res:'',score:'',g3:false};
+  [a,b].forEach(function(x){if(x==='W')w++;else if(x==='L')l++});
+  if(w<2&&l<2){g3=true;if(!c)return{res:'',score:'',g3:true};if(c==='W')w++;else if(c==='L')l++}
+  return{res:w>l?'W':l>w?'L':'D',score:w+'-'+l,g3:g3}}
+function segG(i){var v=form.games[i];return '<div class="seg">'+[['W','勝','w'],['L','敗','l'],['D','和','d']].map(function(x){return '<button type="button" class="'+(v===x[0]?'on '+x[2]:'')+'" onclick="setG('+i+',\''+x[0]+'\')">'+x[1]+'</button>'}).join('')+'</div>'}
+function setG(i,v){syncForm();form.games[i]=v;render()}
+function resHtml(){
+  if(form.fmt!=='BO3')return '<label>結果</label>'+seg('res',[['W','勝'],['L','敗'],['D','和']],form.res,{W:'w',L:'l',D:'d'});
+  var c=calcBo3(form.games),h='';
+  for(var i=0;i<(c.g3?3:2);i++)h+='<label>Game '+(i+1)+'</label>'+segG(i);
+  return h+'<div style="margin-top:12px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">整場結果　'+(c.res?'<span class="badge b-'+c.res.toLowerCase()+'">'+RL[c.res]+'</span> <b>'+c.score+'</b>':'<span class="mu">請依序填寫各局勝敗</span>')+'</div>'}
+function seg(name,items,cur,cls){return '<div class="seg">'+items.map(function(it){return '<button type="button" class="'+(cur===it[0]?'on ':'')+(cls?cls[it[0]]||'':'')+'" onclick="setF(\''+name+'\',\''+it[0]+'\')">'+it[1]+'</button>'}).join('')+'</div>'}
+function setF(k,v){syncForm();form[k]=v;if(k==='fmt'||k==='res')form.score='';render()}
+function syncForm(){['date','event','me','opp','note','gamec'].forEach(function(k){var e=document.getElementById('f_'+k);if(e)form[k]=e.value})}
+function add(){syncForm();
+  var g=form.game==='__c'?form.gamec.trim():form.game;
+  if(!g){alert('請選擇 TCG 分類');return}
+  if(!form.event.trim()||!form.me.trim()||!form.opp.trim()){alert('請填寫賽事名稱、我的牌組與對手牌組');return}
+  var rs=form.res,sc='',gm;
+  if(form.fmt==='BO3'){var c=calcBo3(form.games);if(!c.res){alert('請填寫各局勝敗（Game 1、Game 2，必要時 Game 3）');return}rs=c.res;sc=c.score;gm=form.games.slice(0,c.g3?3:2)}
+  var r={id:form.editId||Date.now(),game:g,date:form.date,event:form.event.trim(),fmt:form.fmt,me:form.me.trim(),opp:form.opp.trim(),res:rs,score:sc,games:gm,turn:form.turn,note:form.note.trim()};
+  if(form.editId){recs=recs.map(function(x){return x.id===form.editId?r:x})}else recs.push(r);
+  save();if(form.editId){form.game=loadGame()||g}else{saveGame(g);form.game=g}form.gamec='';form.opp='';form.score='';form.games=['','',''];form.note='';form.turn='';form.editId=null;tab='log';render()}
+function del(id){if(!confirm('刪除這筆紀錄？'))return;recs=recs.filter(function(r){return r.id!==id});save();render()}
+function startEdit(id){var r=recs.filter(function(x){return x.id===id})[0];if(!r)return;form={game:r.game||'',gamec:'',games:(r.games||[]).concat(['','','']).slice(0,3),date:r.date,event:r.event,fmt:r.fmt,me:r.me,opp:r.opp,res:r.res,score:r.score||'',turn:r.turn||'',note:r.note||'',editId:id};tab='add';render();scrollTo(0,0)}
+function cancelEdit(){form={game:loadGame(),gamec:'',games:['','',''],date:today(),event:'',fmt:'BO1',me:'',opp:'',res:'W',score:'',turn:'',note:'',editId:null};tab='log';render()}
+function loadGame(){try{return localStorage.getItem('tcg_last_game_v1')||''}catch(e){return ''}}
+function saveGame(g){try{localStorage.setItem('tcg_last_game_v1',g)}catch(e){}}
+function gameList(){var o={};GAMES.forEach(function(g){o[g]=1});recs.forEach(function(r){if(r.game)o[r.game]=1});if(form.game&&form.game!=='__c')o[form.game]=1;return Object.keys(o)}
+function gameSelHtml(){
+  var h='<select onchange="gameSel(this.value)"><option value="">請選擇…</option>'+gameList().map(function(g){return '<option value="'+esc(g)+'"'+(form.game===g?' selected':'')+'>'+esc(g)+'</option>'}).join('')+'<option value="__c"'+(form.game==='__c'?' selected':'')+'>＋ 自訂分類…</option></select>';
+  if(form.game==='__c')h+='<input id="f_gamec" style="margin-top:6px" value="'+esc(form.gamec)+'" placeholder="輸入 TCG 名稱">';
+  return h}
+function gameSel(v){syncForm();form.game=v;render()}
+function deckList(){var o={};recs.forEach(function(r){if(!form.game||form.game==='__c'||r.game===form.game){o[r.me]=1;o[r.opp]=1}});return Object.keys(o)}
+function vAdd(){
+  return '<h1>'+(form.editId?'編輯戰績':'新增戰績')+'</h1><div class="card">'+
+  '<label>TCG 分類</label>'+gameSelHtml()+'<label>日期</label><input id="f_date" type="date" value="'+form.date+'">'+
+  '<label>賽事名稱</label><input id="f_event" list="dl_e" value="'+esc(form.event)+'" placeholder="例：店賽 10月場">'+
+  '<label>賽制</label>'+seg('fmt',[['BO1','BO1'],['BO3','BO3']],form.fmt)+
+  '<label>我的牌組</label><input id="f_me" list="dl_d" value="'+esc(form.me)+'" placeholder="牌組名稱">'+
+  '<label>對手牌組</label><input id="f_opp" list="dl_d" value="'+esc(form.opp)+'" placeholder="對手牌組名稱">'+
+  resHtml()+
+  '<label>先後攻（選填）</label>'+seg('turn',[['先','先攻'],['後','後攻'],['','未記']],form.turn)+'<label>備註（選填）</label><textarea id="f_note" rows="2" placeholder="例：關鍵失誤、對手特殊打法">'+esc(form.note)+'</textarea>'+opts('dl_e',uniq('event'))+opts('dl_d',deckList())+
+  '<button class="btn" onclick="add()">'+(form.editId?'更新戰績':'儲存戰績')+'</button>'+(form.editId?'<button class="btn sec" onclick="cancelEdit()">取消編輯</button>':'')+'</div>'}
+function vLog(){
+  if(!recs.length)return '<h1>戰績列表</h1><div class="empty">還沒有紀錄</div>';
+  var l=recs.slice().sort(function(a,b){return b.date.localeCompare(a.date)||b.id-a.id});
+  return '<h1>戰績列表</h1>'+l.map(function(r){
+    return '<div class="card"><div class="row"><div><b>'+esc(r.event)+'</b><div class="mu">'+(r.game?'['+esc(r.game)+'] ':'')+r.date+' ・ '+r.fmt+(r.score?' ・ '+r.score:'')+(r.games&&r.games.length?'（'+r.games.map(function(x){return RL[x]}).join('')+'）':'')+(r.turn?' ・ '+r.turn+'攻':'')+'</div></div><span class="badge b-'+r.res.toLowerCase()+'">'+RL[r.res]+'</span></div>'+
+    '<div style="margin-top:6px">'+esc(r.me)+' <span class="mu">vs</span> '+esc(r.opp)+'</div>'+(r.note?'<div class="mu" style="margin-top:4px">📝 '+esc(r.note)+'</div>':'')+
+    '<div style="text-align:right"><button class="x" style="color:var(--ac)" onclick="startEdit('+r.id+')">編輯</button> <button class="x" onclick="del('+r.id+')">刪除</button></div></div>'}).join('')}
+function agg(list,fn){var m={};list.forEach(function(r){var k=fn(r);m[k]=m[k]||{w:0,l:0,d:0};m[k][r.res.toLowerCase()]++});return m}
+function rate(o){var n=o.w+o.l;return n?Math.round(o.w/n*1000)/10:0}
+function tbl(m,title){
+  var ks=Object.keys(m).sort(function(a,b){var x=m[a],y=m[b];return(y.w+y.l+y.d)-(x.w+x.l+x.d)});
+  if(!ks.length)return '';
+  return '<div class="card"><b>'+title+'</b>'+ks.map(function(k){var o=m[k],n=o.w+o.l+o.d;
+    return '<div style="margin-top:10px"><div class="row"><span>'+esc(k)+'</span><span class="mu">'+o.w+'勝 '+o.l+'敗'+(o.d?' '+o.d+'和':'')+' ・ <b style="color:var(--tx)">'+rate(o)+'%</b></span></div><div class="bar"><i style="width:'+rate(o)+'%"></i></div></div>'}).join('')+'</div>'}
+function streak(list){
+  var s=list.slice().sort(function(a,b){return a.date.localeCompare(b.date)||a.id-b.id}),cur=0,best=0;
+  s.forEach(function(r){if(r.res==='W'){cur++;best=Math.max(best,cur)}else if(r.res==='L')cur=0});
+  var t=0;for(var i=s.length-1;i>=0&&s[i].res==='W';i--)t++;
+  return{cur:t,best:best}}
+function vStats(){
+  var gs={};recs.forEach(function(r){gs[r.game||'未分類']=1});if(gfil!=='all'&&!gs[gfil])gfil='all';
+  var list=recs.filter(function(r){return(fil==='all'||r.fmt===fil)&&(gfil==='all'||(r.game||'未分類')===gfil)});
+  var h='<h1>統計</h1><select onchange="gfil=this.value;render()" style="margin-bottom:10px"><option value="all">全部 TCG</option>'+Object.keys(gs).map(function(g){return '<option value="'+esc(g)+'"'+(gfil===g?' selected':'')+'>'+esc(g)+'</option>'}).join('')+'</select>'+seg2();
+  if(!list.length)return h+'<div class="empty">沒有資料</div>';
+  var o={w:0,l:0,d:0};list.forEach(function(r){o[r.res.toLowerCase()]++});
+  var st=streak(list);
+  h+='<div class="card"><div class="big"><div><b style="color:var(--w)">'+o.w+'</b><span class="mu">勝</span></div><div><b style="color:var(--l)">'+o.l+'</b><span class="mu">敗</span></div><div><b style="color:var(--d)">'+o.d+'</b><span class="mu">和</span></div></div>'+
+  '<div class="row" style="margin-top:12px"><span>勝率（不含和局）</span><b>'+rate(o)+'%</b></div><div class="bar"><i style="width:'+rate(o)+'%"></i></div>'+
+  '<div class="row mu" style="margin-top:8px"><span>共 '+list.length+' 場</span><span>目前連勝 '+st.cur+' ・ 最高連勝 '+st.best+'</span></div></div>';
+  h+=pieChart(list);
+  if(gfil==='all'&&Object.keys(gs).length>1)h+=tbl(agg(list,function(r){return r.game||'未分類'}),'依 TCG 分類');
+  if(fil==='all')h+=tbl(agg(list,function(r){return r.fmt}),'依賽制');
+  h+=tbl(agg(list.filter(function(r){return r.turn}),function(r){return r.turn+'攻'}),'先後攻勝率');
+  h+=tbl(agg(list,function(r){return r.me}),'我的牌組勝率');
+  h+=tbl(agg(list,function(r){return r.opp}),'對手牌組（我的勝率）');
+  return h}
+var pieDeck='';
+function setPie(v){pieDeck=v;render()}
+function pieChart(list){
+  var m=agg(list,function(r){return r.me}),ks=Object.keys(m).sort(function(a,b){var x=m[a],y=m[b];return(y.w+y.l+y.d)-(x.w+x.l+x.d)});
+  if(!ks.length)return '';
+  if(!m[pieDeck])pieDeck=ks[0];
+  var o=m[pieDeck],n=o.w+o.l+o.d,all=[['勝',o.w,'var(--w)'],['敗',o.l,'var(--l)'],['和',o.d,'var(--d)']],items=all.filter(function(x){return x[1]>0}),a0=-Math.PI/2,sl='';
+  var CX=60,CY=38,RX=54,RY=30,DP=14,ps=[];
+  items.forEach(function(it){
+    var c=it[2],f;
+    if(items.length===1){f=function(dy,st){return '<ellipse cx="'+CX+'" cy="'+(CY+dy)+'" rx="'+RX+'" ry="'+RY+'" fill="'+c+'"'+(st?' stroke="var(--card)" stroke-width="1"':'')+'/>'}}
+    else{var a1=a0+it[1]/n*2*Math.PI,x0=CX+RX*Math.cos(a0),y0=CY+RY*Math.sin(a0),x1=CX+RX*Math.cos(a1),y1=CY+RY*Math.sin(a1),lf=it[1]/n>0.5?1:0;a0=a1;
+      f=function(dy,st){return '<path d="M'+CX+','+(CY+dy)+' L'+x0.toFixed(2)+','+(y0+dy).toFixed(2)+' A'+RX+','+RY+' 0 '+lf+',1 '+x1.toFixed(2)+','+(y1+dy).toFixed(2)+' Z" fill="'+c+'"'+(st?' stroke="var(--card)" stroke-width="1" stroke-linejoin="round"':'')+'/>'}}
+    ps.push(f)});
+  var side='';for(var d=DP;d>=1;d--)side+=ps.map(function(f){return f(d,0)}).join('');
+  sl='<defs><radialGradient id="pgl" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></radialGradient></defs>'+
+  '<ellipse cx="'+CX+'" cy="'+(CY+DP+5)+'" rx="'+(RX-2)+'" ry="'+(RY-2)+'" fill="#000" opacity=".22" style="filter:blur(3px)"/>'+
+  '<g style="filter:brightness(.62)">'+side+'</g>'+ps.map(function(f){return f(0,1)}).join('')+
+  '<ellipse cx="'+CX+'" cy="'+CY+'" rx="'+RX+'" ry="'+RY+'" fill="url(#pgl)"/>';
+  var lg=all.map(function(it){return '<div class="row" style="margin-top:6px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+it[2]+';margin-right:6px"></i>'+it[0]+'</span><span class="mu">'+it[1]+'場 ・ <b style="color:var(--tx)">'+(Math.round(it[1]/n*1000)/10)+'%</b></span></div>'}).join('');
+  var sel='<select onchange="setPie(this.value)" style="margin-top:8px">'+ks.map(function(k){return '<option value="'+esc(k)+'"'+(k===pieDeck?' selected':'')+'>'+esc(k)+'（'+(m[k].w+m[k].l+m[k].d)+'場）</option>'}).join('')+'</select>';
+  return '<div class="card"><b>牌組勝敗和比例</b>'+sel+'<svg viewBox="0 0 120 92" style="display:block;width:80%;max-width:240px;margin:12px auto">'+sl+'</svg><div class="mu" style="text-align:center">共 '+n+' 場 ・ 勝率（不含和局）<b style="color:var(--tx)">'+rate(o)+'%</b></div>'+lg+'</div>'}
+function seg2(){return '<div class="seg" style="margin-bottom:12px">'+[['all','全部'],['BO1','BO1'],['BO3','BO3']].map(function(x){return '<button class="'+(fil===x[0]?'on':'')+'" onclick="fil=\''+x[0]+'\';render()">'+x[1]+'</button>'}).join('')+'</div>'}
+function vSet(){
+  return '<h1>資料備份</h1><div class="card"><div class="mu">資料只存在這個瀏覽器／裝置上。請定期複製下方文字備份，換裝置時貼上即可還原。</div>'+
+  '<label>備份資料（JSON）</label><textarea id="bk" rows="7">'+esc(JSON.stringify(recs))+'</textarea>'+
+  '<button class="btn sec" onclick="cp()">複製備份</button><button class="btn sec" onclick="imp()">用上方內容還原（覆蓋現有資料）</button>'+
+  '<button class="btn sec" style="color:var(--l)" onclick="clr()">清除所有資料</button></div>'}
+function cp(){var t=document.getElementById('bk');t.select();try{document.execCommand('copy');alert('已複製')}catch(e){alert('請手動長按複製')}}
+function imp(){try{var a=JSON.parse(document.getElementById('bk').value);if(!Array.isArray(a))throw 0;if(!confirm('將覆蓋現有 '+recs.length+' 筆資料，確定？'))return;recs=a;save();alert('已還原 '+a.length+' 筆');render()}catch(e){alert('格式不正確')}}
+function clr(){if(confirm('確定清除全部資料？此動作無法復原')){recs=[];save();render()}}
+function render(){
+  document.getElementById('app').innerHTML=({add:vAdd,log:vLog,stats:vStats,set:vSet})[tab]();
+  document.getElementById('nav').innerHTML=[['add','＋ 記錄'],['log','列表'],['stats','統計'],['set','備份']].map(function(x){return '<button class="'+(tab===x[0]?'on':'')+'" onclick="tab=\''+x[0]+'\';render();scrollTo(0,0)">'+x[1]+'</button>'}).join('')}
+render();
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){})})}
+</script>
+</body>
+</html>
